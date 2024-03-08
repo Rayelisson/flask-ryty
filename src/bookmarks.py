@@ -4,12 +4,13 @@ from flask.json import jsonify
 import validators
 from flask_jwt_extended import get_jwt_identity, jwt_required
 from src.database import Bookmark, db
+from flasgger import swag_from
 
-bookmarks = Blueprint("bookmarks",  __name__, url_prefix="/api/v1/bookmarks")
+bookmarks = Blueprint("bookmarks", __name__, url_prefix="/api/v1/bookmarks")
 
 
 @bookmarks.route('/', methods=['POST', 'GET'])
-@jwt_required
+@jwt_required()
 def handle_bookmarks():
     current_user = get_jwt_identity()
 
@@ -43,7 +44,6 @@ def handle_bookmarks():
         }), HTTP_201_CREATED
 
     else:
-
         page = request.args.get('page', 1, type=int)
         per_page = request.args.get('per_page', 5, type=int)
 
@@ -71,6 +71,7 @@ def handle_bookmarks():
             'next_page': bookmarks.next_num,
             'has_next': bookmarks.has_next,
             'has_prev': bookmarks.has_prev,
+
         }
 
         return jsonify({'data': data, "meta": meta}), HTTP_200_OK
@@ -146,3 +147,27 @@ def editbookmark(id):
         'created_at': bookmark.created_at,
         'updated_at': bookmark.updated_at,
     }), HTTP_200_OK
+
+
+@bookmarks.get("/stats")
+@jwt_required()
+@swag_from("./docs/bookmarks/stats.yaml")
+# @swag_from("./docs/bookmarks/stats.yaml")
+def get_stats():
+    current_user = get_jwt_identity()
+
+    data = []
+
+    items = Bookmark.query.filter_by(user_id=current_user).all()
+
+    for item in items:
+        new_link = {
+            'visits': item.visits,
+            'url': item.url,
+            'id': item.id,
+            'short_url': item.short_url,
+        }
+
+        data.append(new_link)
+
+    return jsonify({'data': data}), HTTP_200_OK
